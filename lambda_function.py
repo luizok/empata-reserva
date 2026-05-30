@@ -1,4 +1,5 @@
 import datetime as dt
+from zoneinfo import ZoneInfo
 import os
 
 import yaml
@@ -45,6 +46,11 @@ class GKeepManager:
         self.__keep.sync()
 
 
+def format_date(date):
+
+    return f"{date:%Y-%m-%d %H:%M:%S}"
+
+
 def handler(event, context):
 
     keep = GKeepManager(
@@ -54,9 +60,9 @@ def handler(event, context):
     config = keep.get_config()
     BookingBlocker().block(config["reservas"])
 
-    t = dt.datetime.now()
-    config["ultima_execucao"] = f"{t.isoformat()}"
-    config["proxima_execucao"] = f"{(t + dt.timedelta(minutes=15)).isoformat()}"
+    t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
+    config["ultima_execucao"] = format_date(t)
+    config["proxima_execucao"] = format_date(t + dt.timedelta(minutes=15))
 
     keep.update_gkeep_note(config)
 
