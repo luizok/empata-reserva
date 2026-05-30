@@ -11,55 +11,53 @@ class BookingBlocker:
         print("TODO: blocking")
 
 
-def get_gkeep_note(keep):
+class GKeepManager:
 
-    # gnotes = keep.all()
-    gnotes = keep.find(labels=[keep.findLabel('empata_reserva')])
+    def __init__(self, gaccount, gaccount_master_token):
+        self.__keep = gkeepapi.Keep()
+        self.__keep.authenticate(gaccount, gaccount_master_token)
+        self.__gnote = self.__get_gkeep_note()
 
-    gnote = None
-    for note in gnotes:
-        gnote = note
-        break
+    def __get_gkeep_note(self):
 
-    return gnote
+        # gnotes = keep.all()
+        gnotes = self.__keep.find(
+            labels=[self.__keep.findLabel('empata_reserva')]
+        )
+
+        for note in gnotes:
+            return note
+
+        return None
+
+    def get_config(self):
+
+        config = None
+        if self.__gnote:
+            config = yaml.safe_load(self.__gnote.text)
+            return config
+
+        return None
+
+    def update_gkeep_note(self, config):
+
+        self.__gnote.text = yaml.dump(config, allow_unicode=True)
+        self.__keep.sync()
 
 
-def extract_config_from_note(gnote):
+def handler(event, context):
 
-    config = None
-    if gnote:
-        config = yaml.safe_load(gnote.text)
-
-    return config
-
-
-def update_gkeep_note(keep, config):
-
-    gnote = get_gkeep_note(keep)
+    keep = GKeepManager(
+        os.getenv("GACCOUNT"),
+        os.getenv("GACCOUNT_MASTER_TOKEN")
+    )
+    config = keep.get_config()
+    BookingBlocker().block(config["reservas"])
 
     t = dt.datetime.now()
     config["ultima_execucao"] = f"{t.isoformat()}"
     config["proxima_execucao"] = f"{(t + dt.timedelta(minutes=15)).isoformat()}"
 
-    gnote.text = yaml.dump(config, allow_unicode=True)
-
-    keep.sync()
-
-
-def handler(event, context):
-
-    keep = gkeepapi.Keep()
-    keep.authenticate(
-        os.getenv("GACCOUNT"),
-        os.getenv("GACCOUNT_MASTER_TOKEN")
-    )
-
-    gnote = get_gkeep_note(keep)
-    config = extract_config_from_note(gnote)
-
-    new_config = BookingBlocker().block(config["reservas"])
-    print(new_config)
-
-    update_gkeep_note(keep, config)
+    keep.update_gkeep_note(config)
 
     return {"foo": "bar"}
