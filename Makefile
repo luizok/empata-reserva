@@ -1,4 +1,4 @@
-IMAGE_NAME:=empata-reserva:test
+IMAGE_NAME:=empata-reserva/empata-reserva:latest
 
 run:
 	docker buildx build \
@@ -14,3 +14,8 @@ run:
 
 invoke:
 	curl "http://localhost:9000/2015-03-31/functions/function/invocations" -d '{}'
+
+infra-deploy:
+	terraform fmt
+	terraform validate
+	terraform apply
