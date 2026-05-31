@@ -2,11 +2,13 @@ import datetime as dt
 from zoneinfo import ZoneInfo
 import os
 import json
+from time import sleep
 
 import boto3
 import yaml
 import gkeepapi
 import requests
+from bs4 import BeautifulSoup
 
 
 GREEN_CIRCLE_EMOJI = "\U0001f7e2"
@@ -16,8 +18,9 @@ RED_CIRCLE_EMOJI = "\U0001f534"
 
 class BookingBlocker:
 
-    def __init__(self, base_url):
+    def __init__(self, base_url, retries=5):
         self.base_url = base_url
+        self.retries = retries
         self.__referer_url = ''
         self.__session = requests.Session()
         self.__default_headers = {
@@ -27,8 +30,11 @@ class BookingBlocker:
         }
         self.__responses = []
 
-    def block(self, chairs, dt, hr):
-        self.__step_001_get_poltronas(dt, hr)
+    def block(self, table_num, dt, hr):
+
+        chairs = [f"ms{table_num}_cdr_{c}" for c in "abcd"]
+
+        self.__step_001_get_poltronas(table_num, dt, hr)
         self.__step_002_post_poltronas(poltronas=chairs, dt=dt, hr=hr)
         self.__step_003_get_reserva(qtd=len(chairs), dt=dt, hr=hr)
         self.__step_004_get_pag_page(qtd=len(chairs), dt=dt, hr=hr)
@@ -39,15 +45,38 @@ class BookingBlocker:
 
         return res
 
-    def __step_001_get_poltronas(self, dt, hr):
+    def is_table_available(self, content, table_num):
+
+        soup = BeautifulSoup(content, "html.parser")
+
+        form = soup.find(id="myForm")
+        tables = form.find_all(
+            id=lambda x: x in [f"mesa-{table_num}", f"mesa-1{table_num:02d}"]
+        )
+
+        return len(tables) == 2
+
+    def __step_001_get_poltronas(self, table_num, dt, hr):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
         params = {"dt": dt, "hr": hr, "qtd": "6"}
 
-        response = self.__session.get(
-            url,
-            headers=self.__default_headers,
-            params=params
-        )
+        available = False
+        for k in range(self.retries):
+            response = self.__session.get(
+                url,
+                headers=self.__default_headers,
+                params=params
+            )
+            available = self.is_table_available(response.content, table_num)
+            if available:
+                break
+
+            print(f"Table {table_num} not available yet. Try [{k+1}/{self.retries}]")
+            sleep(10)
+
+        if not available:
+            raise Exception(f"Table {table_num} unavailable after {self.retries} retries")
+
         print(f"[001] GET poltronas — status: {response.status_code}")
         # print(self.__session.cookies.get_dict())
         self.__referer_url = response.url
@@ -191,17 +220,23 @@ def format_date(date):
 
 def handler(event, context):
 
-    ssm = boto3.client("ssm")
-    creds_ssm = ssm.get_parameter(Name=os.getenv("SSM_GACCOUNT_CREDENTIALS"))
-    creds = json.loads(creds_ssm["Parameter"]["Value"])
+    # ssm = boto3.client("ssm")
+    # creds_ssm = ssm.get_parameter(Name=os.getenv("SSM_GACCOUNT_CREDENTIALS"))
+    # creds = json.loads(creds_ssm["Parameter"]["Value"])
+
+    # keep = GKeepManager(
+    #     creds["gaccount"],
+    #     creds["gaccount_master_token"],
+    # )
 
     keep = GKeepManager(
-        creds["gaccount"],
-        creds["gaccount_master_token"],
+        os.getenv("GACCOUNT"),
+        os.getenv("GACCOUNT_MASTER_TOKEN"),
     )
     config = keep.get_config()
+    print(config)
     bb = BookingBlocker(os.getenv("BASE_URL"))
-    res = bb.block(config["reservas"], config["data"], config["hora"])
+    res = bb.block(config["numero_mesa"], config["data"], config["hora"])
     emoji_map = {200: GREEN_CIRCLE_EMOJI}
 
     t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
