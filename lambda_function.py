@@ -222,10 +222,19 @@ def format_date(date):
 
 def update_empata_reserva_schedule(schedule_name, date):
 
+    fmt_date = f"{format_date(date)}:00"
     scheduler = boto3.client("scheduler")
     curr_schedule = scheduler.get_schedule(Name=schedule_name)
-    curr_schedule["ScheduleExpression"] = f"{format_date(date)}:00"
+    curr_schedule["ScheduleExpression"] = fmt_date
     curr_schedule["State"] = "ENABLED"
+
+    del curr_schedule["ResponseMetadata"]
+    del curr_schedule["Arn"]
+    del curr_schedule["CreationDate"]
+
+    res = scheduler.update_schedule(**curr_schedule)
+
+    print(f"Updated schedule {res['ScheduleArn']} to {fmt_date}")
 
 
 def handler(event, context):
