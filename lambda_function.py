@@ -1,7 +1,9 @@
 import datetime as dt
 from zoneinfo import ZoneInfo
 import os
+import json
 
+import boto3
 import yaml
 import gkeepapi
 import requests
@@ -189,9 +191,13 @@ def format_date(date):
 
 def handler(event, context):
 
+    ssm = boto3.client("ssm")
+    creds_ssm = ssm.get_parameter(Name=os.getenv("SSM_GACCOUNT_CREDENTIALS"))
+    creds = json.loads(creds_ssm["Parameter"]["Value"])
+
     keep = GKeepManager(
-        os.getenv("GACCOUNT"),
-        os.getenv("GACCOUNT_MASTER_TOKEN")
+        creds["gaccount"],
+        creds["gaccount_master_token"],
     )
     config = keep.get_config()
     bb = BookingBlocker(os.getenv("BASE_URL"))
