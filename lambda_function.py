@@ -7,6 +7,11 @@ import gkeepapi
 import requests
 
 
+GREEN_CIRCLE_EMOJI = "\U0001f7e2"
+# ORANGE_CIRCLE_EMOJI = "\U0001f7e0"
+RED_CIRCLE_EMOJI = "\U0001f534"
+
+
 class BookingBlocker:
 
     def __init__(self, base_url):
@@ -34,7 +39,7 @@ class BookingBlocker:
 
     def __step_001_get_poltronas(self):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
-        params = {"dt": "07-09-2026", "hr": "09-30", "qtd": "6"}
+        params = {"dt": "07-09-2026", "hr": "14-00", "qtd": "6"}
 
         response = self.__session.get(
             url,
@@ -48,7 +53,7 @@ class BookingBlocker:
 
     def __step_002_post_poltronas(self, poltronas):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
-        params = {"dt": "07-09-2026", "hr": "09-30", "qtd": "6"}
+        params = {"dt": "07-09-2026", "hr": "14-00", "qtd": "6"}
 
         headers = self.__default_headers | {
             "cache-control": "max-age=0",
@@ -72,7 +77,7 @@ class BookingBlocker:
         url = f"{self.base_url}/guararest/reserva-trem-guararema-restaurante.php"
         params = {
             "dt": "07-09-2026",
-            "hr": "09-30",
+            "hr": "14-00",
             "adt": "0",
             "crs": "0",
             "bab": "0",
@@ -94,7 +99,7 @@ class BookingBlocker:
         url = f"{self.base_url}/guararest/pag-guararest.php"
         params = {
             "dt": "07-09-2026",
-            "hr": "09-30",
+            "hr": "14-00",
             "qtd": qtd,
             "adt": qtd,
             "crs": "0",
@@ -191,10 +196,14 @@ def handler(event, context):
     config = keep.get_config()
     bb = BookingBlocker(os.getenv("BASE_URL"))
     res = bb.block(config["reservas"])
+    emoji_map = {200: GREEN_CIRCLE_EMOJI}
 
     t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
     config["ultima_execucao"] = format_date(t)
     config["proxima_execucao"] = format_date(t + dt.timedelta(minutes=15))
+    config["requests_status"] = ' '.join([
+        emoji_map.get(s, RED_CIRCLE_EMOJI) for s in res
+    ])
 
     keep.update_gkeep_note(config)
 
