@@ -75,7 +75,9 @@ class BookingBlocker:
             sleep(10)
 
         if not available:
-            raise Exception(f"Table {table_num} unavailable after {self.retries} retries")
+            self.__responses.append(404)
+            msg = f"Table {table_num} unavailable after {self.retries} retries"
+            raise Exception(msg)
 
         print(f"[001] GET poltronas — status: {response.status_code}")
         # print(self.__session.cookies.get_dict())
@@ -215,7 +217,7 @@ class GKeepManager:
 
 def format_date(date):
 
-    return f"{date:%Y-%m-%d %H:%M:%S}"
+    return f"{date:%Y-%m-%d %H:%M}"
 
 
 def handler(event, context):
