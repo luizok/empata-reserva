@@ -25,21 +25,21 @@ class BookingBlocker:
         }
         self.__responses = []
 
-    def block(self, chairs):
-        self.__step_001_get_poltronas()
-        self.__step_002_post_poltronas(poltronas=chairs)
-        self.__step_003_get_reserva(qtd=len(chairs))
-        self.__step_004_get_pag_page(qtd=len(chairs))
+    def block(self, chairs, dt, hr):
+        self.__step_001_get_poltronas(dt, hr)
+        self.__step_002_post_poltronas(poltronas=chairs, dt=dt, hr=hr)
+        self.__step_003_get_reserva(qtd=len(chairs), dt=dt, hr=hr)
+        self.__step_004_get_pag_page(qtd=len(chairs), dt=dt, hr=hr)
         self.__step_005_post_pagamento()
 
         res = self.__responses
-        self.__response = []
+        self.__responses = []
 
         return res
 
-    def __step_001_get_poltronas(self):
+    def __step_001_get_poltronas(self, dt, hr):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
-        params = {"dt": "07-09-2026", "hr": "14-00", "qtd": "6"}
+        params = {"dt": dt, "hr": hr, "qtd": "6"}
 
         response = self.__session.get(
             url,
@@ -51,9 +51,9 @@ class BookingBlocker:
         self.__referer_url = response.url
         self.__responses.append(response.status_code)
 
-    def __step_002_post_poltronas(self, poltronas):
+    def __step_002_post_poltronas(self, poltronas, dt, hr):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
-        params = {"dt": "07-09-2026", "hr": "14-00", "qtd": "6"}
+        params = {"dt": dt, "hr": hr, "qtd": "6"}
 
         headers = self.__default_headers | {
             "cache-control": "max-age=0",
@@ -73,11 +73,11 @@ class BookingBlocker:
         self.__referer_url = response.url
         self.__responses.append(response.status_code)
 
-    def __step_003_get_reserva(self, qtd):
+    def __step_003_get_reserva(self, qtd, dt, hr):
         url = f"{self.base_url}/guararest/reserva-trem-guararema-restaurante.php"
         params = {
-            "dt": "07-09-2026",
-            "hr": "14-00",
+            "dt": dt,
+            "hr": hr,
             "adt": "0",
             "crs": "0",
             "bab": "0",
@@ -95,11 +95,11 @@ class BookingBlocker:
         self.__referer_url = response.url
         self.__responses.append(response.status_code)
 
-    def __step_004_get_pag_page(self, qtd):
+    def __step_004_get_pag_page(self, qtd, dt, hr):
         url = f"{self.base_url}/guararest/pag-guararest.php"
         params = {
-            "dt": "07-09-2026",
-            "hr": "14-00",
+            "dt": dt,
+            "hr": hr,
             "qtd": qtd,
             "adt": qtd,
             "crs": "0",
@@ -195,7 +195,7 @@ def handler(event, context):
     )
     config = keep.get_config()
     bb = BookingBlocker(os.getenv("BASE_URL"))
-    res = bb.block(config["reservas"])
+    res = bb.block(config["reservas"], config["data"], config["hora"])
     emoji_map = {200: GREEN_CIRCLE_EMOJI}
 
     t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
