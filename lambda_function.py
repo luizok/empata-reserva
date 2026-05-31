@@ -18,7 +18,7 @@ RED_CIRCLE_EMOJI = "\U0001f534"
 
 class BookingBlocker:
 
-    def __init__(self, base_url, retries=5):
+    def __init__(self, base_url, retries=6):
         self.base_url = base_url
         self.retries = retries
         self.__referer_url = ''
@@ -220,21 +220,32 @@ def format_date(date):
     return f"{date:%Y-%m-%d %H:%M}"
 
 
+def update_empata_reserva_schedule(schedule_name, date):
+
+    scheduler = boto3.client("scheduler")
+    curr_schedule = scheduler.get_schedule(Name=schedule_name)
+    curr_schedule["ScheduleExpression"] = f"{format_date(date)}:00"
+    curr_schedule["State"] = "ENABLED"
+
+
 def handler(event, context):
 
-    # ssm = boto3.client("ssm")
-    # creds_ssm = ssm.get_parameter(Name=os.getenv("SSM_GACCOUNT_CREDENTIALS"))
-    # creds = json.loads(creds_ssm["Parameter"]["Value"])
+    keep = None
+    if os.getenv("ENV") == "local":
+        keep = GKeepManager(
+            os.getenv("GACCOUNT"),
+            os.getenv("GACCOUNT_MASTER_TOKEN"),
+        )
+    else:
+        ssm = boto3.client("ssm")
+        creds_ssm = ssm.get_parameter(Name=os.getenv("SSM_GACCOUNT_CREDENTIALS"))
+        creds = json.loads(creds_ssm["Parameter"]["Value"])
 
-    # keep = GKeepManager(
-    #     creds["gaccount"],
-    #     creds["gaccount_master_token"],
-    # )
+        keep = GKeepManager(
+            creds["gaccount"],
+            creds["gaccount_master_token"],
+        )
 
-    keep = GKeepManager(
-        os.getenv("GACCOUNT"),
-        os.getenv("GACCOUNT_MASTER_TOKEN"),
-    )
     config = keep.get_config()
     print(config)
     bb = BookingBlocker(os.getenv("BASE_URL"))
@@ -249,5 +260,6 @@ def handler(event, context):
     ])
 
     keep.update_gkeep_note(config)
+    update_empata_reserva_schedule(os.getenv("SCHEDULE_NAME"), t)
 
     return {"foo": "bar"}

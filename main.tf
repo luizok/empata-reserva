@@ -93,6 +93,16 @@ data "aws_iam_policy_document" "lambda_read_ssm" {
     ]
     resources = [aws_ssm_parameter.gacc_creds.arn]
   }
+
+  statement {
+    sid     = "UpdateSchedule"
+    effect  = "Allow"
+    actions = [
+      "scheduler:GetSchedule",
+      "scheduler:UpdateSchedule"
+    ]
+    resources = [aws_scheduler_schedule.every_15_min.arn]
+  }
 }
 
 resource "aws_iam_role_policy" "lambda_read_ssm" {
@@ -169,6 +179,8 @@ resource "aws_lambda_function" "this" {
       BASE_URL                 = var.base_url
       IANA_TZ                  = var.iana_tz
       SSM_GACCOUNT_CREDENTIALS = aws_ssm_parameter.gacc_creds.name
+      ENV                      = var.environment
+      SCHEDULE_NAME            = local.schedule_name
     }
   }
 
@@ -178,12 +190,17 @@ resource "aws_lambda_function" "this" {
   ]
 }
 
-resource "aws_scheduler_schedule" "every_15_min" {
-  name        = "${var.project_name}-${var.environment}-every-15min"
-  group_name  = "default"
-  description = "Triggers ${aws_lambda_function.this.function_name} every 15 minutes"
+locals {
+  schedule_date = timeadd(timeadd(timestamp(), "15m"), "-3h") # -3 depends on timezone
+  schedule_name = "${var.project_name}-${var.environment}-trigger"
+}
 
-  schedule_expression          = "rate(15 minutes)"
+resource "aws_scheduler_schedule" "every_15_min" {
+  name        = local.schedule_name
+  group_name  = "default"
+  description = "Triggers ${aws_lambda_function.this.function_name} every 15 minutes, updated by lambda"
+
+  schedule_expression          = "at(${trimsuffix(local.schedule_date, "Z")})"
   schedule_expression_timezone = var.iana_tz
 
   flexible_time_window {
@@ -216,6 +233,11 @@ output "lambda_function_arn" {
 output "scheduler_arn" {
   description = "ARN of the EventBridge Scheduler"
   value       = aws_scheduler_schedule.every_15_min.arn
+}
+
+output "next_schedule_date" {
+  description = "Time of next schedule trigger"
+  value       = aws_scheduler_schedule.every_15_min.schedule_expression
 }
 
 output "lambda_log_group" {
