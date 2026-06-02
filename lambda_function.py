@@ -217,7 +217,7 @@ class GKeepManager:
 
 def format_date(date):
 
-    return f"{date:%Y-%m-%d %H:%M}"
+    return f"{date:%Y-%m-%dT%H:%M}"
 
 
 def update_empata_reserva_schedule(schedule_name, date):
@@ -225,6 +225,8 @@ def update_empata_reserva_schedule(schedule_name, date):
     fmt_date = f"{format_date(date)}:00"
     scheduler = boto3.client("scheduler")
     curr_schedule = scheduler.get_schedule(Name=schedule_name)
+
+    curr_schedule["ScheduleExpression"] = f"at({fmt_date})"
 
     del curr_schedule["ResponseMetadata"]
     del curr_schedule["Arn"]
