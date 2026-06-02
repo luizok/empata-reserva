@@ -68,6 +68,7 @@ class BookingBlocker:
                 params=params
             )
             available = self.is_table_available(response.content, table_num)
+            self.__responses.append(available)
             if available:
                 break
 
@@ -82,7 +83,6 @@ class BookingBlocker:
         print(f"[001] GET poltronas — status: {response.status_code}")
         # print(self.__session.cookies.get_dict())
         self.__referer_url = response.url
-        self.__responses.append(response.status_code)
 
     def __step_002_post_poltronas(self, poltronas, dt, hr):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
@@ -104,7 +104,6 @@ class BookingBlocker:
         )
         print(f"[002] POST poltronas — status: {response.status_code}")
         self.__referer_url = response.url
-        self.__responses.append(response.status_code)
 
     def __step_003_get_reserva(self, qtd, dt, hr):
         url = f"{self.base_url}/guararest/reserva-trem-guararema-restaurante.php"
@@ -126,7 +125,6 @@ class BookingBlocker:
         response = self.__session.get(url, headers=headers, params=params)
         print(f"[003] GET reserva — status: {response.status_code}")
         self.__referer_url = response.url
-        self.__responses.append(response.status_code)
 
     def __step_004_get_pag_page(self, qtd, dt, hr):
         url = f"{self.base_url}/guararest/pag-guararest.php"
@@ -145,7 +143,6 @@ class BookingBlocker:
         response = self.__session.get(url, headers=headers, params=params)
         print(f"[004] GET pag-page — status: {response.status_code}")
         self.__referer_url = response.url
-        self.__responses.append(response.status_code)
 
     def __step_005_post_pagamento(self):
         url = f"{self.base_url}/pay/pgm-guararest.php"
@@ -176,7 +173,6 @@ class BookingBlocker:
 
         response = self.__session.post(url, headers=headers, data=body)
         print(f"[005] POST pagamento — status: {response.status_code}")
-        self.__responses.append(response.status_code)
 
         return None
 
@@ -260,14 +256,13 @@ def handler(event, context):
     print(config)
     bb = BookingBlocker(os.getenv("BASE_URL"))
     res = bb.block(config["numero_mesa"], config["data"], config["hora"])
-    emoji_map = {200: GREEN_CIRCLE_EMOJI}
 
     t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
     t_next = t + dt.timedelta(minutes=15)
     config["ultima_execucao"] = format_date(t)
     config["proxima_execucao"] = format_date(t_next)
     config["requests_status"] = ' '.join([
-        emoji_map.get(s, RED_CIRCLE_EMOJI) for s in res
+        GREEN_CIRCLE_EMOJI if s else RED_CIRCLE_EMOJI for s in res
     ])
 
     keep.update_gkeep_note(config)
