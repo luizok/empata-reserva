@@ -268,4 +268,4 @@ def handler(event, context):
     keep.update_gkeep_note(config)
     update_empata_reserva_schedule(os.getenv("SCHEDULE_NAME"), t_next)
 
-    return {"foo": "bar"}
+    return config

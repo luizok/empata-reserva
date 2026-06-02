@@ -1,3 +1,4 @@
 .env
 config.aws.tfbackend
 .terraform*
+testing_resources/
