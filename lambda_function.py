@@ -253,7 +253,7 @@ def handler(event, context):
         )
 
     config = keep.get_config()
-    print(config)
+    print(f'{config=}')
     bb = BookingBlocker(os.getenv("BASE_URL"))
     res = bb.block(config["numero_mesa"], config["data"], config["hora"])
 
@@ -267,5 +267,6 @@ def handler(event, context):
 
     keep.update_gkeep_note(config)
     update_empata_reserva_schedule(os.getenv("SCHEDULE_NAME"), t_next)
+    print(f'new_config={config}')
 
     return config
