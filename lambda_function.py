@@ -32,7 +32,7 @@ class BookingBlocker:
 
     def block(self, table_num, dt, hr):
 
-        chairs = [f"ms{table_num}_cdr_{c}" for c in "abcd"]
+        chairs = [f"ms{table_num}_cdr_{c}" for c in "cd"]
 
         self.__step_001_get_poltronas(table_num, dt, hr)
         self.__step_002_post_poltronas(poltronas=chairs, dt=dt, hr=hr)
@@ -51,10 +51,10 @@ class BookingBlocker:
 
         form = soup.find(id="myForm")
         tables = form.find_all(
-            id=lambda x: x in [f"mesa-{table_num}", f"mesa-1{table_num:02d}"]
+            id=f"mesa-1{table_num:02d}"
         )
 
-        return len(tables) == 2
+        return len(tables) == 1
 
     def __step_001_get_poltronas(self, table_num, dt, hr):
         url = f"{self.base_url}/guararest/seleciona-poltronas-guararest.php"
@@ -225,12 +225,11 @@ def update_empata_reserva_schedule(schedule_name, date):
     fmt_date = f"{format_date(date)}:00"
     scheduler = boto3.client("scheduler")
     curr_schedule = scheduler.get_schedule(Name=schedule_name)
-    curr_schedule["ScheduleExpression"] = fmt_date
-    curr_schedule["State"] = "ENABLED"
 
     del curr_schedule["ResponseMetadata"]
     del curr_schedule["Arn"]
     del curr_schedule["CreationDate"]
+    del curr_schedule["LastModificationDate"]
 
     res = scheduler.update_schedule(**curr_schedule)
 
@@ -262,13 +261,14 @@ def handler(event, context):
     emoji_map = {200: GREEN_CIRCLE_EMOJI}
 
     t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
+    t_next = t + dt.timedelta(minutes=15)
     config["ultima_execucao"] = format_date(t)
-    config["proxima_execucao"] = format_date(t + dt.timedelta(minutes=15))
+    config["proxima_execucao"] = format_date(t_next)
     config["requests_status"] = ' '.join([
         emoji_map.get(s, RED_CIRCLE_EMOJI) for s in res
     ])
 
     keep.update_gkeep_note(config)
-    update_empata_reserva_schedule(os.getenv("SCHEDULE_NAME"), t)
+    update_empata_reserva_schedule(os.getenv("SCHEDULE_NAME"), t_next)
 
     return {"foo": "bar"}

@@ -95,13 +95,22 @@ data "aws_iam_policy_document" "lambda_read_ssm" {
   }
 
   statement {
-    sid     = "UpdateSchedule"
-    effect  = "Allow"
+    sid    = "UpdateSchedule"
+    effect = "Allow"
     actions = [
       "scheduler:GetSchedule",
       "scheduler:UpdateSchedule"
     ]
     resources = [aws_scheduler_schedule.every_15_min.arn]
+  }
+
+  statement {
+    sid    = "PassRole"
+    effect = "Allow"
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [aws_iam_role.scheduler_exec.arn]
   }
 }
 
