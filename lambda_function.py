@@ -254,16 +254,25 @@ def handler(event, context):
 
     config = keep.get_config()
     print(f'{config=}')
-    bb = BookingBlocker(os.getenv("BASE_URL"))
-    res = bb.block(config["numero_mesa"], config["data"], config["hora"])
+
+    res = None
+    try:
+        bb = BookingBlocker(os.getenv("BASE_URL"))
+        res = bb.block(config["numero_mesa"], config["data"], config["hora"])
+    except Exception as e:
+        print(e)
 
     t = dt.datetime.now().astimezone(ZoneInfo(os.getenv("IANA_TZ")))
     t_next = t + dt.timedelta(minutes=15)
     config["ultima_execucao"] = format_date(t)
     config["proxima_execucao"] = format_date(t_next)
-    config["requests_status"] = ' '.join([
-        GREEN_CIRCLE_EMOJI if s else RED_CIRCLE_EMOJI for s in res
-    ])
+
+    if res:
+        config["requests_status"] = ' '.join([
+            GREEN_CIRCLE_EMOJI if s else RED_CIRCLE_EMOJI for s in res
+        ])
+    else:
+        config["requests_status"] = 'UNABLE TO LOAD PAGE. WAIT FOR NEXT RUN'
 
     keep.update_gkeep_note(config)
     update_empata_reserva_schedule(os.getenv("SCHEDULE_NAME"), t_next)
